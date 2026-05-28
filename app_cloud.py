@@ -474,23 +474,25 @@ def check_password():
     if st.session_state["authenticated"]:
         return True
 
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
-    with col_logo2:
-        st.image("logo.png", use_container_width=True)
-    st.markdown(
-        "<h1 style='text-align:center;'>ProceDo — Gestion Parc Scanners</h1>"
-        "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
-        unsafe_allow_html=True,
-    )
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        password = st.text_input("Mot de passe", type="password", key="login_pw")
-        if st.button("Se connecter", use_container_width=True):
-            if password == st.secrets["auth"]["password"]:
-                st.session_state["authenticated"] = True
-                st.rerun()
-            else:
-                st.error("Mot de passe incorrect.")
+    login_container = st.empty()
+    with login_container.container():
+        col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
+        with col_logo2:
+            st.image("logo.png", use_container_width=True)
+        st.markdown(
+            "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
+            unsafe_allow_html=True,
+        )
+        col1, col2, col3 = st.columns([1, 1.5, 1])
+        with col2:
+            password = st.text_input("Mot de passe", type="password", key="login_pw")
+            if st.button("Se connecter", use_container_width=True):
+                if password == st.secrets["auth"]["password"]:
+                    st.session_state["authenticated"] = True
+                    login_container.empty()
+                    st.rerun()
+                else:
+                    st.error("Mot de passe incorrect.")
     return False
 
 if not check_password():
