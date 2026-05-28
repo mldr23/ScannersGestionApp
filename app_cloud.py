@@ -474,8 +474,11 @@ def check_password():
     if st.session_state["authenticated"]:
         return True
 
+    col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
+    with col_logo2:
+        st.image("logo.png", use_container_width=True)
     st.markdown(
-        "<h1 style='text-align:center;'>📡 ProceDo — Gestion Parc Scanners</h1>"
+        "<h1 style='text-align:center;'>ProceDo — Gestion Parc Scanners</h1>"
         "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
         unsafe_allow_html=True,
     )
