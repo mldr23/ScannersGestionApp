@@ -483,7 +483,7 @@ def check_password():
     with col2:
         password = st.text_input("Mot de passe", type="password", key="login_pw")
         if st.button("Se connecter", use_container_width=True):
-            if password == st.secrets.get("app_password", ""):
+            if password == st.secrets["app_password"]:
                 st.session_state["authenticated"] = True
                 st.rerun()
             else:
