@@ -465,6 +465,34 @@ def filter_agencies(agencies_df, prefix):
 
 st.set_page_config(page_title="ProceDo — Gestion Parc Scanners", page_icon="📡", layout="wide")
 
+# ── Authentification ───────────────────────────────────────────────────────
+def check_password():
+    """Affiche un écran de login et retourne True si le mot de passe est correct."""
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    if st.session_state["authenticated"]:
+        return True
+
+    st.markdown(
+        "<h1 style='text-align:center;'>📡 ProceDo — Gestion Parc Scanners</h1>"
+        "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        password = st.text_input("Mot de passe", type="password", key="login_pw")
+        if st.button("Se connecter", use_container_width=True):
+            if password == st.secrets.get("app_password", ""):
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Mot de passe incorrect.")
+    return False
+
+if not check_password():
+    st.stop()
+
 if not USE_SQL_SERVER:
     init_demo_db()
 
