@@ -121,7 +121,8 @@ def init_codes_postaux():
                 END
             """)
             conn.commit()
-            count = cur.execute("SELECT COUNT(*) FROM DimCodesPostaux").fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM DimCodesPostaux")
+            count = cur.fetchone()[0]
             if count == 0:
                 rows = [(cp, _get_province(cp)) for cp in range(1000, 10000) if _get_province(cp)]
                 for batch_start in range(0, len(rows), 500):
@@ -136,7 +137,8 @@ def init_codes_postaux():
                     Province TEXT NOT NULL
                 )
             """)
-            count = cur.execute("SELECT COUNT(*) FROM DimCodesPostaux").fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM DimCodesPostaux")
+            count = cur.fetchone()[0]
             if count == 0:
                 rows = [(cp, _get_province(cp)) for cp in range(1000, 10000) if _get_province(cp)]
                 cur.executemany("INSERT INTO DimCodesPostaux VALUES (?, ?)", rows)
