@@ -13,6 +13,7 @@ import streamlit as st
 import pandas as pd
 import pymssql
 import json
+import hashlib
 import os
 from datetime import date, datetime, timedelta
 from contextlib import contextmanager
@@ -76,6 +77,8 @@ def run_execute(sql, params=None):
         p = _convert_params(params)
         cur.execute(_sql_adapt(sql), tuple(p) if p else None)
         conn.commit()
+    # Vider le cache après chaque modification pour rafraîchir les données
+    st.cache_data.clear()
 
 
 def sql_top(query_body, n, order_by):
@@ -343,26 +346,31 @@ def get_statut_for_loc(loc, transit_retour=False):
     return LOC_TO_STATUT.get(loc, "???")
 
 
+@st.cache_data(ttl=300)
 def get_open_agencies():
     return run_query(
         "SELECT Kantoor_id, Kantoor_Bureau, Adresse, Localite FROM DimKantoren WHERE Status = 'open' ORDER BY Kantoor_Bureau"
     )
 
 
+@st.cache_data(ttl=300)
 def get_all_agencies():
     return run_query("SELECT Kantoor_id, Kantoor_Bureau, Adresse, Localite, Status FROM DimKantoren ORDER BY Kantoor_Bureau")
 
 
+@st.cache_data(ttl=300)
 def get_active_scanners():
     return run_query(
         "SELECT Serial_num, Mac_address, Localisation, Statut FROM DimScanners WHERE Statut = 'actif' ORDER BY Serial_num"
     )
 
 
+@st.cache_data(ttl=300)
 def get_all_scanners():
     return run_query("SELECT * FROM DimScanners ORDER BY Serial_num")
 
 
+@st.cache_data(ttl=300)
 def get_stock_scanners():
     return run_query(
         "SELECT Serial_num, Mac_address, Localisation, Statut FROM DimScanners "
@@ -466,12 +474,17 @@ def filter_agencies(agencies_df, prefix):
 st.set_page_config(page_title="ProceDo — Gestion Parc Scanners", page_icon="📡", layout="wide")
 
 # ── Authentification ───────────────────────────────────────────────────────
+_AUTH_TOKEN = hashlib.sha256(st.secrets["auth"]["password"].encode()).hexdigest()[:16]
+
 def check_password():
     """Affiche un écran de login et retourne True si le mot de passe est correct."""
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
+    # Vérifier le token dans l'URL (persistant après refresh)
+    params = st.query_params
+    if params.get("token") == _AUTH_TOKEN:
+        st.session_state["authenticated"] = True
+        return True
 
-    if st.session_state["authenticated"]:
+    if st.session_state.get("authenticated"):
         return True
 
     login_container = st.empty()
@@ -489,6 +502,7 @@ def check_password():
             if st.button("Se connecter", use_container_width=True):
                 if password == st.secrets["auth"]["password"]:
                     st.session_state["authenticated"] = True
+                    st.query_params["token"] = _AUTH_TOKEN
                     login_container.empty()
                     st.rerun()
                 else:
