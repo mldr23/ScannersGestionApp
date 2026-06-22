@@ -1,62 +1,68 @@
 """
-Scanner Fleet Management — Streamlit UI (CLOUD)
-================================================
-Version cloud : Azure SQL Database + pymssql.
-Credentials lus depuis st.secrets (fichier .streamlit/secrets.toml).
+Scanner Fleet Management — Streamlit UI
+========================================
+Connecté à votre DWH SQL Server (DimScanners, DimKantoren,
+FactMovementsHistory, FactScannersMaintenance).
 
-Version locale : voir app.py (pyodbc + Windows Auth sur localhost).
+Mode démo SQLite inclus pour tester sans SQL Server.
 
-Déployer : streamlit run app_cloud.py
+Lancer : streamlit run app.py
 """
 
 import streamlit as st
 import pandas as pd
-import pymssql
+import sqlite3
 import json
-import hashlib
 import os
 from datetime import date, datetime, timedelta
 from contextlib import contextmanager
 import plotly.express as px
 import numpy as np
 
-# ── Configuration (Azure SQL via st.secrets) ───────────────────────────────
-
-SQL_SERVER_CONFIG = {
-    "server": st.secrets["azure_sql"]["server"],
-    "database": st.secrets["azure_sql"]["database"],
-    "user": st.secrets["azure_sql"]["user"],
-    "password": st.secrets["azure_sql"]["password"],
-}
+# ── Configuration ───────────────────────────────────────────────────────────
 
 USE_SQL_SERVER = True
+
+SQL_SERVER_CONFIG = {
+    "server": "localhost",
+    "database": "Parc_Scanners_Procedo",
+    "driver": "{ODBC Driver 17 for SQL Server}",
+    "user": "",
+    "password": "",
+}
+
+SQLITE_PATH = "scanner_demo.db"
 
 # ── Connexion DB ────────────────────────────────────────────────────────────
 
 @contextmanager
 def get_connection():
-    cfg = SQL_SERVER_CONFIG
-    conn = pymssql.connect(
-        server=cfg["server"],
-        user=cfg["user"],
-        password=cfg["password"],
-        database=cfg["database"],
-    )
+    if USE_SQL_SERVER:
+        import pyodbc
+        cfg = SQL_SERVER_CONFIG
+        if cfg["user"]:
+            conn_str = (
+                f"DRIVER={cfg['driver']};SERVER={cfg['server']};"
+                f"DATABASE={cfg['database']};UID={cfg['user']};PWD={cfg['password']}"
+            )
+        else:
+            conn_str = (
+                f"DRIVER={cfg['driver']};SERVER={cfg['server']};"
+                f"DATABASE={cfg['database']};Trusted_Connection=yes"
+            )
+        conn = pyodbc.connect(conn_str)
+    else:
+        conn = sqlite3.connect(SQLITE_PATH)
+        conn.execute("PRAGMA foreign_keys = ON")
     try:
         yield conn
     finally:
         conn.close()
 
 
-def _sql_adapt(sql):
-    """pymssql utilise %s au lieu de ? comme placeholder."""
-    return sql.replace("?", "%s")
-
-
 def run_query(sql, params=None):
     with get_connection() as conn:
-        p = _convert_params(params)
-        return pd.read_sql(_sql_adapt(sql), conn, params=tuple(p) if p else None)
+        return pd.read_sql(sql, conn, params=params)
 
 
 def _convert_params(params):
@@ -74,19 +80,22 @@ def _convert_params(params):
 def run_execute(sql, params=None):
     with get_connection() as conn:
         cur = conn.cursor()
-        p = _convert_params(params)
-        cur.execute(_sql_adapt(sql), tuple(p) if p else None)
+        cur.execute(sql, _convert_params(params) or [])
         conn.commit()
-    # Vider le cache après chaque modification pour rafraîchir les données
-    st.cache_data.clear()
 
 
 def sql_top(query_body, n, order_by):
-    return f"SELECT TOP {n} {query_body} {order_by}"
+    if USE_SQL_SERVER:
+        return f"SELECT TOP {n} {query_body} {order_by}"
+    else:
+        return f"SELECT {query_body} {order_by} LIMIT {n}"
 
 
 def sql_cast_text(column):
-    return f"CAST({column} AS VARCHAR(50))"
+    if USE_SQL_SERVER:
+        return f"CAST({column} AS VARCHAR(50))"
+    else:
+        return f"CAST({column} AS TEXT)"
 
 
 # ── Initialisation table codes postaux ──────────────────────────────────────
@@ -124,8 +133,7 @@ def init_codes_postaux():
                 END
             """)
             conn.commit()
-            cur.execute("SELECT COUNT(*) FROM DimCodesPostaux")
-            count = cur.fetchone()[0]
+            count = cur.execute("SELECT COUNT(*) FROM DimCodesPostaux").fetchone()[0]
             if count == 0:
                 rows = [(cp, _get_province(cp)) for cp in range(1000, 10000) if _get_province(cp)]
                 for batch_start in range(0, len(rows), 500):
@@ -140,8 +148,7 @@ def init_codes_postaux():
                     Province TEXT NOT NULL
                 )
             """)
-            cur.execute("SELECT COUNT(*) FROM DimCodesPostaux")
-            count = cur.fetchone()[0]
+            count = cur.execute("SELECT COUNT(*) FROM DimCodesPostaux").fetchone()[0]
             if count == 0:
                 rows = [(cp, _get_province(cp)) for cp in range(1000, 10000) if _get_province(cp)]
                 cur.executemany("INSERT INTO DimCodesPostaux VALUES (?, ?)", rows)
@@ -346,31 +353,26 @@ def get_statut_for_loc(loc, transit_retour=False):
     return LOC_TO_STATUT.get(loc, "???")
 
 
-@st.cache_data(ttl=300)
 def get_open_agencies():
     return run_query(
         "SELECT Kantoor_id, Kantoor_Bureau, Adresse, Localite FROM DimKantoren WHERE Status = 'open' ORDER BY Kantoor_Bureau"
     )
 
 
-@st.cache_data(ttl=300)
 def get_all_agencies():
     return run_query("SELECT Kantoor_id, Kantoor_Bureau, Adresse, Localite, Status FROM DimKantoren ORDER BY Kantoor_Bureau")
 
 
-@st.cache_data(ttl=300)
 def get_active_scanners():
     return run_query(
         "SELECT Serial_num, Mac_address, Localisation, Statut FROM DimScanners WHERE Statut = 'actif' ORDER BY Serial_num"
     )
 
 
-@st.cache_data(ttl=300)
 def get_all_scanners():
     return run_query("SELECT * FROM DimScanners ORDER BY Serial_num")
 
 
-@st.cache_data(ttl=300)
 def get_stock_scanners():
     return run_query(
         "SELECT Serial_num, Mac_address, Localisation, Statut FROM DimScanners "
@@ -472,45 +474,6 @@ def filter_agencies(agencies_df, prefix):
 # ── Page config ─────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title="ProceDo — Gestion Parc Scanners", page_icon="📡", layout="wide")
-
-# ── Authentification ───────────────────────────────────────────────────────
-_AUTH_TOKEN = hashlib.sha256(st.secrets["auth"]["password"].encode()).hexdigest()[:16]
-
-def check_password():
-    """Affiche un écran de login et retourne True si le mot de passe est correct."""
-    # Vérifier le token dans l'URL (persistant après refresh)
-    params = st.query_params
-    if params.get("token") == _AUTH_TOKEN:
-        st.session_state["authenticated"] = True
-        return True
-
-    if st.session_state.get("authenticated"):
-        return True
-
-    login_container = st.empty()
-    with login_container.container():
-        col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
-        with col_logo2:
-            st.image("logo.png", use_container_width=True)
-        st.markdown(
-            "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
-            unsafe_allow_html=True,
-        )
-        col1, col2, col3 = st.columns([1, 1.5, 1])
-        with col2:
-            password = st.text_input("Mot de passe", type="password", key="login_pw")
-            if st.button("Se connecter", use_container_width=True):
-                if password == st.secrets["auth"]["password"]:
-                    st.session_state["authenticated"] = True
-                    st.query_params["token"] = _AUTH_TOKEN
-                    login_container.empty()
-                    st.rerun()
-                else:
-                    st.error("Mot de passe incorrect.")
-    return False
-
-if not check_password():
-    st.stop()
 
 if not USE_SQL_SERVER:
     init_demo_db()
@@ -660,7 +623,7 @@ st.sidebar.markdown(
 )
 
 st.sidebar.divider()
-mode_label = "Azure SQL (cloud)"
+mode_label = "SQL Server" if USE_SQL_SERVER else "SQLite (démo)"
 st.sidebar.caption(f"🔌 Connecté : **{mode_label}**")
 
 # ═════════════════════════════════════════════════════════════════════════════
