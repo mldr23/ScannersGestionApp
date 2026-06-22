@@ -670,13 +670,15 @@ st.sidebar.caption(f"🔌 Connecté : **{mode_label}**")
 if page == "Dashboard":
     st.title("Dashboard — Parc Scanners")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col3b = st.columns(4)
     total_scanners = run_query("SELECT COUNT(*) AS n FROM DimScanners")["n"][0]
+    parc_actuel = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut NOT IN ('détruit', 'fin de vie')")["n"][0]
     actifs = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut = 'actif'")["n"][0]
     agences_open = run_query("SELECT COUNT(*) AS n FROM DimKantoren WHERE Status = 'open'")["n"][0]
     col1.metric("Total scanners", total_scanners)
-    col2.metric("Actifs en agence", actifs)
-    col3.metric("Agences ouvertes", agences_open)
+    col2.metric("Parc actuel", parc_actuel)
+    col3.metric("Actifs en agence", actifs)
+    col3b.metric("Agences ouvertes", agences_open)
 
     col4, col5, col6, col7 = st.columns(4)
     en_reparation = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut = 'à réparer'")["n"][0]
@@ -2432,11 +2434,13 @@ elif page == "Maintenance":
     )
     nb_closed = int(_nb_closed["n"].values[0]) if not _nb_closed.empty else 0
 
-    # Durée moyenne de réparation (jours, sur toutes les maintenances clôturées)
+    # Durée moyenne de réparation (jours, sur maintenances clôturées — hors scanners perdus)
     _avg_dur = run_query(
-        """SELECT AVG(CAST(DATEDIFF(DAY, Return_date, End_Maintenance) AS FLOAT)) AS avg_days
-           FROM FactScannersMaintenance
-           WHERE End_Maintenance IS NOT NULL AND Return_date IS NOT NULL"""
+        """SELECT AVG(CAST(DATEDIFF(DAY, m.Return_date, m.End_Maintenance) AS FLOAT)) AS avg_days
+           FROM FactScannersMaintenance m
+           JOIN DimScanners s ON m.Serial_num = s.Serial_num
+           WHERE m.End_Maintenance IS NOT NULL AND m.Return_date IS NOT NULL
+             AND s.Statut != 'à rechercher'"""
     )
     avg_duree = round(float(_avg_dur["avg_days"].values[0]), 1) if not _avg_dur.empty and pd.notna(_avg_dur["avg_days"].values[0]) else 0
 
