@@ -2549,34 +2549,43 @@ elif page == "Maintenance":
                     show_success(f"✅ Réparation #{maint_close_id} clôturée. SN {sn_cloture} → Procedo (inactif).", "maint_close")
 
     with tab_edit_maint:
-        st.subheader("Modifier ou compléter une maintenance en cours")
+        st.subheader("Modifier ou compléter une maintenance")
         st.caption("Mettre à jour la description de panne, les infos de réparation ou le compteur copies.")
 
         search_maint_edit_sn = st.text_input("Rechercher par n° de série", key="maint_edit_sn")
+        only_open_maint = st.checkbox("Afficher uniquement les maintenances ouvertes", value=True, key="maint_edit_only_open")
 
-        open_maints = run_query("""
-            SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date
-            FROM FactScannersMaintenance m
-            WHERE m.End_Maintenance IS NULL
-            ORDER BY m.Return_date DESC
-        """)
+        if only_open_maint:
+            all_maints = run_query("""
+                SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
+                FROM FactScannersMaintenance m
+                WHERE m.End_Maintenance IS NULL
+                ORDER BY m.Return_date DESC
+            """)
+        else:
+            all_maints = run_query("""
+                SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
+                FROM FactScannersMaintenance m
+                ORDER BY m.Return_date DESC
+            """)
 
         if search_maint_edit_sn:
-            open_maints = open_maints[open_maints["Serial_num"].astype(str).str.contains(search_maint_edit_sn)]
+            all_maints = all_maints[all_maints["Serial_num"].astype(str).str.contains(search_maint_edit_sn)]
 
-        if open_maints.empty:
-            st.info("Aucune maintenance ouverte trouvée.")
+        if all_maints.empty:
+            st.info("Aucune maintenance trouvée.")
         else:
             selected_maint = st.selectbox(
                 "Maintenance à modifier",
-                open_maints["Maintenance_id"].tolist(),
+                all_maints["Maintenance_id"].tolist(),
                 format_func=lambda x: (
-                    f"#{x} — SN {open_maints.loc[open_maints['Maintenance_id']==x, 'Serial_num'].values[0]} "
-                    f"— {open_maints.loc[open_maints['Maintenance_id']==x, 'Panne_detected'].values[0]}"
+                    f"#{x} — SN {all_maints.loc[all_maints['Maintenance_id']==x, 'Serial_num'].values[0]} "
+                    f"— {all_maints.loc[all_maints['Maintenance_id']==x, 'Panne_detected'].values[0]}"
+                    f"{' (clôturée)' if pd.notna(all_maints.loc[all_maints['Maintenance_id']==x, 'End_Maintenance'].values[0]) else ''}"
                 ),
                 key="edit_maint_select"
             )
-            maint_row = open_maints[open_maints["Maintenance_id"] == selected_maint].iloc[0]
+            maint_row = all_maints[all_maints["Maintenance_id"] == selected_maint].iloc[0]
 
             with st.form(f"edit_maintenance_form_{selected_maint}"):
                 new_panne = st.text_area(
@@ -3131,7 +3140,7 @@ elif page == "Actions fréquentes":
 
                 st.divider()
                 st.caption("Compléter la fiche avant clôture (facultatif) :")
-                close_panne = st.text_area("Description de la panne", placeholder="Ecran cassé, capteur défaillant...", key="close_repair_panne")
+                close_panne = st.text_area("Description de la réparation", placeholder="Ecran remplacé, capteur recalibré...", key="close_repair_panne")
                 close_info = st.text_input("Info maintenance", placeholder="Pièce commandée, renvoyé fournisseur...", key="close_repair_info")
                 close_copie = st.text_input("Copies", value="", key="close_repair_copie")
 
