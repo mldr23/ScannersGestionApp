@@ -635,7 +635,7 @@ if page == "Dashboard":
 
     col1, col2, col3, col3b = st.columns(4)
     total_scanners = run_query("SELECT COUNT(*) AS n FROM DimScanners")["n"][0]
-    parc_actuel = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut NOT IN ('détruit', 'fin de vie')")["n"][0]
+    parc_actuel = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut NOT IN ('détruit', 'fin de vie', 'retour garantie')")["n"][0]
     actifs = run_query("SELECT COUNT(*) AS n FROM DimScanners WHERE Statut = 'actif'")["n"][0]
     agences_open = run_query("SELECT COUNT(*) AS n FROM DimKantoren WHERE Status = 'open'")["n"][0]
     col1.metric("Total scanners", total_scanners)
