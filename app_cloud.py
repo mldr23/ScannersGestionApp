@@ -491,7 +491,7 @@ def check_password():
     with login_container.container():
         col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
         with col_logo2:
-            st.image("logo.png", use_container_width=True)
+            st.image("logo.svg", use_container_width=True)
         st.markdown(
             "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
             unsafe_allow_html=True,
