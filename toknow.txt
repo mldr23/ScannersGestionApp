@@ -1,0 +1,5 @@
+sql azure "martin.leijder@procedo.be" :
+procedo_admin
+MgRover1@
+
+https://procedo-services.streamlit.app/

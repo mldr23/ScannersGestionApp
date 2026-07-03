@@ -575,7 +575,7 @@ st.markdown("""
 # ── Sidebar avec logo ───────────────────────────────────────────────────────
 
 import os
-logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+logo_path = os.path.join(os.path.dirname(__file__), "ProceDo-logo.png")
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, use_container_width=True)
     st.sidebar.markdown("")

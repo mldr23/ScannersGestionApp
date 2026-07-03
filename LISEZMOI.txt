@@ -1,0 +1,70 @@
+=============================================
+  GESTION PARC SCANNERS — Guide de démarrage
+=============================================
+
+1. INSTALLATION
+---------------
+Ouvrez un terminal (cmd ou PowerShell) dans le dossier contenant app.py :
+
+    pip install -r requirements.txt
+
+2. LANCER EN MODE DEMO (SQLite)
+-------------------------------
+Par défaut l'app tourne avec une base SQLite locale avec des données d'exemple :
+
+    streamlit run app.py
+
+L'interface s'ouvre dans votre navigateur sur http://localhost:8501
+
+3. CONNECTER A SQL SERVER
+-------------------------
+Ouvrez app.py et modifiez les lignes 22-30 :
+
+    USE_SQL_SERVER = True
+
+    SQL_SERVER_CONFIG = {
+        "server": "VOTRE_SERVEUR",       # ex: "localhost\\SQLEXPRESS" ou "192.168.1.10"
+        "database": "VOTRE_BDD",          # ex: "ScannerDWH"
+        "driver": "{ODBC Driver 17 for SQL Server}",
+        "user": "",                       # vide = Windows Authentication
+        "password": "",
+    }
+
+Prerequis : ODBC Driver 17 for SQL Server doit etre installe.
+Telechargement : https://learn.microsoft.com/fr-fr/sql/connect/odbc/download-odbc-driver-for-sql-server
+
+4. ACCES DISTANT (multi-sites)
+------------------------------
+Pour rendre l'app accessible depuis d'autres postes sur le reseau :
+
+    streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+
+Les collegues accedent via : http://VOTRE_IP:8501
+
+5. STRUCTURE DE L'APPLICATION
+-----------------------------
+- Dashboard       : Vue d'ensemble (KPIs, graphiques, derniers mouvements)
+- Scanners        : Liste, ajout, modification des scanners
+- Agences         : Liste, ajout, modification des agences (kantoren)
+- Mouvements      : Historique complet + ajout de mouvements
+- Maintenance     : Declaration de pannes, cloture de reparations
+- Actions rapides : Scenarios metier en 1 clic :
+    * Deplacer un scanner
+    * Fermer une agence (tous scanners -> stock auto)
+    * Reinstaller un scanner apres reparation
+    * Mettre un scanner au rebut
+
+6. NOTES IMPORTANTES
+--------------------
+- En mode SQL Server, assurez-vous que vos tables DWH (DimScanners,
+  DimKantoren, FactMovementsHistory, FactScannersMaintenance) existent
+  deja avec votre CREATE TABLE.
+
+- La requete "LIMIT 15" du dashboard doit etre changee en "TOP 15"
+  pour SQL Server. Remplacez :
+    "... ORDER BY m.DateDebut DESC LIMIT 15"
+  par :
+    "SELECT TOP 15 ... ORDER BY m.DateDebut DESC"
+
+- Le CAST(... AS TEXT) dans la recherche par serial doit devenir
+  CAST(... AS VARCHAR) pour SQL Server.
