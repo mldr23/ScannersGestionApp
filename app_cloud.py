@@ -2462,10 +2462,16 @@ elif page == "Maintenance":
         maint_date_from = col_m3.date_input("Return date début", value=None, key="maint_date_from")
         maint_date_to = col_m4.date_input("Return date fin", value=None, key="maint_date_to")
 
-        only_open = st.checkbox("Afficher uniquement les maintenances ouvertes", value=False, key="maint_only_open")
+        col_m5, col_m6 = st.columns(2)
+        only_open = col_m5.checkbox("Afficher uniquement les maintenances ouvertes", value=False, key="maint_only_open")
+
+        # Filtre par statut scanner
+        _statuts_df = run_query("SELECT DISTINCT s.Statut FROM DimScanners s JOIN FactScannersMaintenance m ON s.Serial_num = m.Serial_num ORDER BY s.Statut")
+        _statut_options = ["Tous"] + (_statuts_df["Statut"].tolist() if not _statuts_df.empty else [])
+        maint_statut_filter = col_m6.selectbox("Filtrer par statut scanner", _statut_options, index=0, key="maint_statut_filter")
 
         maint_query = """
-            SELECT m.Maintenance_id, m.Serial_num, s.Mac_address,
+            SELECT m.Maintenance_id, m.Serial_num, s.Mac_address, s.Statut AS Statut_scanner,
                    m.Event_type, m.Panne_detected, m.Info_Maintenance,
                    m.Copie, m.Return_date, m.End_Maintenance
             FROM FactScannersMaintenance m
@@ -2474,6 +2480,8 @@ elif page == "Maintenance":
         """
         if only_open:
             maint_query += " AND m.End_Maintenance IS NULL"
+        if maint_statut_filter != "Tous":
+            maint_query += f" AND s.Statut = '{maint_statut_filter}'"
         if search_maint_id:
             maint_query += f" AND {sql_cast_text('m.Maintenance_id')} = '{search_maint_id}'"
         if search_maint_sn:
@@ -2482,7 +2490,11 @@ elif page == "Maintenance":
             maint_query += f" AND m.Return_date >= '{maint_date_from}'"
         if maint_date_to:
             maint_query += f" AND m.Return_date <= '{maint_date_to}'"
-        maint_query += " ORDER BY m.Return_date DESC"
+
+        if maint_statut_filter != "Tous":
+            maint_query += " ORDER BY m.Serial_num ASC, m.Return_date DESC"
+        else:
+            maint_query += " ORDER BY m.Return_date DESC"
 
         df = run_query(maint_query)
         st.dataframe(df.rename(columns={"Copie": "Copies"}), width="stretch", hide_index=True, key="df_maintenance_hist")
@@ -3359,17 +3371,15 @@ elif page == "Actions fréquentes":
             st.markdown("**Nouvelle adresse**")
 
             with st.form("demenagement"):
-                new_bureau = st.text_input("Nom bureau", value=old_ag["Kantoor_Bureau"] or "", key="dem_bureau")
+                new_bureau = st.text_input("Nom bureau", key="dem_bureau")
                 new_adresse = st.text_input("Nouvelle adresse", key="dem_adresse")
                 new_cpos = st.number_input("Nouveau code postal", min_value=1000, max_value=9999, step=1, key="dem_cpos")
                 new_localite = st.text_input("Nouvelle localité", key="dem_localite")
-                new_taal = st.selectbox("Langue", ["F", "N", "D"],
-                                        index=["F", "N", "D"].index(old_ag["Taal"]) if old_ag["Taal"] in ["F", "N", "D"] else 0,
-                                        key="dem_taal")
-                new_contact = st.text_input("Contact", value=old_ag["Contactnaam"] or "", key="dem_contact")
-                new_tel = st.text_input("Tél", value=old_ag["Teln"] or "", key="dem_tel")
-                new_gsm = st.text_input("GSM", value=old_ag["GSM"] or "", key="dem_gsm")
-                new_email = st.text_input("Email", value=old_ag["Email"] or "", key="dem_email")
+                new_taal = st.selectbox("Langue", ["F", "N", "D"], key="dem_taal")
+                new_contact = st.text_input("Contact", key="dem_contact")
+                new_tel = st.text_input("Tél", key="dem_tel")
+                new_gsm = st.text_input("GSM", key="dem_gsm")
+                new_email = st.text_input("Email", key="dem_email")
                 dem_date = st.date_input("Date du déménagement", value=date.today(), key="dem_date")
 
                 if st.form_submit_button("Exécuter le déménagement", type="primary"):
