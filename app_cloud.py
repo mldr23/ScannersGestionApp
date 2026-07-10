@@ -11,7 +11,7 @@ Déployer : streamlit run app_cloud.py
 
 import streamlit as st
 import pandas as pd
-import pymssql
+import pytds
 import json
 import hashlib
 import os
@@ -36,8 +36,8 @@ USE_SQL_SERVER = True
 @contextmanager
 def get_connection():
     cfg = SQL_SERVER_CONFIG
-    conn = pymssql.connect(
-        server=cfg["server"],
+    conn = pytds.connect(
+        dsn=cfg["server"],
         user=cfg["user"],
         password=cfg["password"],
         database=cfg["database"],
