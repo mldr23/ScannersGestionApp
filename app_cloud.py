@@ -432,7 +432,7 @@ def display_scanner_context(serial_num, prefix="ctx"):
     )
     if not last_mvts.empty:
         st.caption("5 derniers mouvements :")
-        st.dataframe(last_mvts, use_container_width=True, hide_index=True, key=f"df_{prefix}_mvt_{serial_num}")
+        st.dataframe(last_mvts, width="stretch", hide_index=True, key=f"df_{prefix}_mvt_{serial_num}")
 
     # Maintenance ouverte
     open_maint = run_query(
@@ -491,7 +491,7 @@ def check_password():
     with login_container.container():
         col_logo1, col_logo2, col_logo3 = st.columns([1, 1, 1])
         with col_logo2:
-            st.image("ProceDo-logo.png", use_container_width=True)
+            st.image("ProceDo-logo.png", width="stretch")
         st.markdown(
             "<p style='text-align:center;color:gray;'>Veuillez vous connecter pour accéder à l'application.</p>",
             unsafe_allow_html=True,
@@ -499,7 +499,7 @@ def check_password():
         col1, col2, col3 = st.columns([1, 1.5, 1])
         with col2:
             password = st.text_input("Mot de passe", type="password", key="login_pw")
-            if st.button("Se connecter", use_container_width=True):
+            if st.button("Se connecter", width="stretch"):
                 if password == st.secrets["auth"]["password"]:
                     st.session_state["authenticated"] = True
                     st.query_params["token"] = _AUTH_TOKEN
@@ -614,7 +614,7 @@ st.markdown("""
 import os
 logo_path = os.path.join(os.path.dirname(__file__), "ProceDo-logo.png")
 if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, use_container_width=True)
+    st.sidebar.image(logo_path, width="stretch")
     st.sidebar.markdown("")
 else:
     st.sidebar.markdown(
@@ -745,13 +745,13 @@ if page == "Dashboard":
                         lataxis_range=[49.4, 51.6],
                     ),
                 )
-                st.plotly_chart(fig_map, use_container_width=True)
+                st.plotly_chart(fig_map, width="stretch")
             except Exception as e:
                 st.error(f"Erreur carte : {e}")
         else:
             st.info("Fichier belgium_provinces.geojson introuvable.")
 
-        st.dataframe(df_prov, use_container_width=True, hide_index=True, key="df_dashboard_prov")
+        st.dataframe(df_prov, width="stretch", hide_index=True, key="df_dashboard_prov")
     else:
         st.info("Aucun scanner actif en agence pour afficher la carte.")
 
@@ -792,7 +792,7 @@ if page == "Dashboard":
             showlegend=False,
             yaxis=dict(tickfont=dict(size=16, family="Poppins, sans-serif", color="#1B2A4A")),
         )
-        st.plotly_chart(fig_repart, use_container_width=True)
+        st.plotly_chart(fig_repart, width="stretch")
 
     st.subheader("Derniers mouvements")
     df_mvt = run_query(sql_top(
@@ -802,7 +802,7 @@ if page == "Dashboard":
         15,
         "ORDER BY m.DateDebut DESC"
     ))
-    st.dataframe(df_mvt, use_container_width=True, hide_index=True, key="df_dashboard_mvt")
+    st.dataframe(df_mvt, width="stretch", hide_index=True, key="df_dashboard_mvt")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1049,13 +1049,13 @@ elif page == "Logistique":
         df_edit_liv = df_edit_liv.reset_index(drop=True)
         edited_liv = st.data_editor(
             df_edit_liv,
-            use_container_width=True, hide_index=True, key=f"de_liv_{log_year}_{log_month}",
+            width="stretch", hide_index=True, key=f"de_liv_{log_year}_{log_month}",
             disabled=["Movement_id", "Serial_num", "Kantoor_Bureau", "Localite", "Action", "DateDebut"],
             column_config={"Via_Maca": st.column_config.CheckboxColumn("Par Maca Express", default=True)},
         )
         _sp_liv, _btn_liv = st.columns([5.5, 1])
         with _btn_liv:
-            _save_liv = st.button("Valider", key="btn_save_liv", type="primary", use_container_width=True)
+            _save_liv = st.button("Valider", key="btn_save_liv", type="primary", width="stretch")
         if _save_liv:
             changes_liv = []
             for i, row in edited_liv.iterrows():
@@ -1082,13 +1082,13 @@ elif page == "Logistique":
         df_edit_rec = df_edit_rec.reset_index(drop=True)
         edited_rec = st.data_editor(
             df_edit_rec,
-            use_container_width=True, hide_index=True, key=f"de_rec_{log_year}_{log_month}",
+            width="stretch", hide_index=True, key=f"de_rec_{log_year}_{log_month}",
             disabled=["Movement_id", "Serial_num", "Kantoor_Bureau", "Localite", "Action", "DateFin"],
             column_config={"Via_Maca_Fin": st.column_config.CheckboxColumn("Par Maca Express", default=True)},
         )
         _sp_rec, _btn_rec = st.columns([5.5, 1])
         with _btn_rec:
-            _save_rec = st.button("Valider", key="btn_save_rec", type="primary", use_container_width=True)
+            _save_rec = st.button("Valider", key="btn_save_rec", type="primary", width="stretch")
         if _save_rec:
             changes_rec = []
             for i, row in edited_rec.iterrows():
@@ -1151,7 +1151,7 @@ elif page == "Scanners":
         query += " ORDER BY s.Serial_num"
 
         df = run_query(query)
-        st.dataframe(df, use_container_width=True, hide_index=True, height=600, key="df_scanners_liste")
+        st.dataframe(df, width="stretch", hide_index=True, height=600, key="df_scanners_liste")
         st.caption(f"{len(df)} scanner(s) affiché(s)")
 
     # ── Ajouter ──
@@ -1166,7 +1166,7 @@ elif page == "Scanners":
                 existing = run_query(f"SELECT * FROM DimScanners WHERE Serial_num = {check_sn}")
                 if not existing.empty:
                     st.error(f"SN {check_sn} existe déjà en base :")
-                    st.dataframe(existing, use_container_width=True, hide_index=True, key="df_scanners_check")
+                    st.dataframe(existing, width="stretch", hide_index=True, key="df_scanners_check")
                 else:
                     st.success(f"SN {check_sn} est disponible.")
 
@@ -1408,7 +1408,7 @@ elif page == "Agences":
             query += f" AND {sql_cast_text('k.Kantoor_id')} = '{search_ag_kid}'"
         query += " ORDER BY k.Kantoor_Bureau"
         df = run_query(query)
-        st.dataframe(df, use_container_width=True, hide_index=True, height=600, key="df_agences_liste")
+        st.dataframe(df, width="stretch", hide_index=True, height=600, key="df_agences_liste")
         st.caption(f"{len(df)} agence(s)")
 
     # ── Ouvrir une agence ──
@@ -1424,7 +1424,7 @@ elif page == "Agences":
             )
             if not existing_ag.empty:
                 st.warning("Agence(s) similaire(s) trouvée(s) :")
-                st.dataframe(existing_ag, use_container_width=True, hide_index=True, key="df_agences_check")
+                st.dataframe(existing_ag, width="stretch", hide_index=True, key="df_agences_check")
             else:
                 st.success("Aucune agence correspondante — vous pouvez créer.")
 
@@ -1688,7 +1688,7 @@ elif page == "Mouvements":
         query += " ORDER BY m.DateDebut DESC"
 
         df = run_query(query)
-        st.dataframe(df, use_container_width=True, hide_index=True, key="df_mouvements_hist")
+        st.dataframe(df, width="stretch", hide_index=True, key="df_mouvements_hist")
         st.caption(f"{len(df)} mouvement(s)")
 
     # ── Annuler la dernière action ──
@@ -1786,7 +1786,7 @@ elif page == "Mouvements":
 
                                 _sp, _btn = st.columns([5, 1.5])
                                 with _btn:
-                                    _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_close_ag", use_container_width=True)
+                                    _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_close_ag", width="stretch")
                                 if _confirm:
                                     for d in _undo_details:
                                         run_execute("DELETE FROM FactMovementsHistory WHERE Movement_id = ?", [d["rep_mid"]])
@@ -1866,7 +1866,7 @@ elif page == "Mouvements":
 
                             _sp, _btn = st.columns([5, 1.5])
                             with _btn:
-                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_open_ag", use_container_width=True)
+                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_open_ag", width="stretch")
                             if _confirm:
                                 for d in _undo_details:
                                     run_execute("DELETE FROM FactMovementsHistory WHERE Movement_id = ?", [d["inst_mid"]])
@@ -1962,7 +1962,7 @@ elif page == "Mouvements":
 
                             _sp, _btn = st.columns([5, 1.5])
                             with _btn:
-                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_dem", use_container_width=True)
+                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_dem", width="stretch")
                             if _confirm:
                                 for d in _undo_details:
                                     run_execute("DELETE FROM FactMovementsHistory WHERE Movement_id = ?", [d["new_mid"]])
@@ -2126,7 +2126,7 @@ elif page == "Mouvements":
 
                             _sp, _btn = st.columns([5, 1.5])
                             with _btn:
-                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_defect", use_container_width=True)
+                                _confirm = st.button("Confirmer l'annulation", type="primary", key="btn_undo_defect", width="stretch")
                             if _confirm:
                                 # 1. Défectueux : restaurer panne détectée → installé, DateFin → NULL
                                 # Via_Maca (livraison) inchangé, Via_Maca_Fin (récup) devient sans objet (DateFin → NULL)
@@ -2319,7 +2319,7 @@ elif page == "Mouvements":
                         with _btn_undo:
                             confirm_undo = st.button(
                                 "Confirmer l'annulation", type="primary",
-                                key=f"btn_undo_{cur_id}", use_container_width=True
+                                key=f"btn_undo_{cur_id}", width="stretch"
                             )
 
                         if confirm_undo:
@@ -2485,7 +2485,7 @@ elif page == "Maintenance":
         maint_query += " ORDER BY m.Return_date DESC"
 
         df = run_query(maint_query)
-        st.dataframe(df.rename(columns={"Copie": "Copies"}), use_container_width=True, hide_index=True, key="df_maintenance_hist")
+        st.dataframe(df.rename(columns={"Copie": "Copies"}), width="stretch", hide_index=True, key="df_maintenance_hist")
         st.caption(f"{len(df)} maintenance(s)")
 
         display_success("maint_close")
@@ -3129,7 +3129,7 @@ elif page == "Actions fréquentes":
         if open_repairs.empty:
             st.info("Aucune réparation en cours" + (f" pour '{search_repair_sn}'." if search_repair_sn else "."))
         else:
-            st.dataframe(open_repairs.rename(columns={"Copie": "Copies"}), use_container_width=True, hide_index=True, key="df_maintenance_modifier")
+            st.dataframe(open_repairs.rename(columns={"Copie": "Copies"}), width="stretch", hide_index=True, key="df_maintenance_modifier")
 
             st.markdown("**Clôturer une réparation**")
             st.caption("Le scanner passe de 'atelier Procedo' (à réparer) → 'Procedo' (inactif).")
