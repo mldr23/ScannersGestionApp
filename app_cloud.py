@@ -2420,9 +2420,9 @@ elif page == "Maintenance":
     st.caption(f"Période : **{mt_date_from.strftime('%d/%m/%Y')}** → **{mt_date_to.strftime('%d/%m/%Y')}**")
 
     # ── KPIs Maintenance ──
-    # Nouvelles pannes (Return_date dans la période)
+    # Nouvelles pannes (Return_date dans la période, uniquement Failure)
     _nb_new = run_query(
-        "SELECT COUNT(*) AS n FROM FactScannersMaintenance WHERE Return_date BETWEEN ? AND ?",
+        "SELECT COUNT(*) AS n FROM FactScannersMaintenance WHERE Event_type = 'Failure' AND Return_date BETWEEN ? AND ?",
         [str(mt_date_from), str(mt_date_to)]
     )
     nb_new_pannes = int(_nb_new["n"].values[0]) if not _nb_new.empty else 0

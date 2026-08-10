@@ -1,5 +1,5 @@
 # Projet ScannerApp — Recapitulatif complet
-# Derniere mise a jour : 27 mai 2026
+# Derniere mise a jour : 10 juillet 2026
 
 ## Contexte
 PME Procedo (5-10 personnes) qui gere un parc de scanners 730ex plus deployes dans des agences clients (DVV).
@@ -7,13 +7,36 @@ Pierre a cree une BDD SQL Server (DWH) avec historisation des mouvements, repart
 L'objectif est une interface Streamlit pour modifier la BDD automatiquement via des actions metier.
 
 ## Stack technique
-- **BDD** : SQL Server (localhost), base ProcedoV47
+
+### Version locale (app.py)
+- **BDD** : SQL Server (localhost), base Parc_Scanners_Procedo
 - **Interface** : Streamlit (Python)
 - **Connexion** : pyodbc, Windows Authentication
 - **Graphiques** : Plotly (carte interactive, barres)
 - **Typographie** : Poppins (Google Fonts)
 - **Theme** : couleurs ProceDo (bleu marine #1B2A4A + cyan #00B4D8)
 - **Sidebar** : fond bleu clair (#F0F7FA), bordure cyan, logo ProceDo, largeur 300px
+
+### Version cloud (app_cloud.py)
+- **BDD** : Azure SQL Database (free tier, region West Europe)
+  - Serveur : procedo-sql-srv.database.windows.net
+  - Base : Parc_Scanners_Procedo
+  - Admin : procedo_admin
+  - Auto-pause apres 1h d'inactivite (reveil automatique a la connexion, rafraichir la page)
+- **Interface** : Streamlit Community Cloud (deploiement automatique sur git push)
+- **Connexion** : pymssql (pur Python, %s comme placeholder, params en tuples)
+- **Repo GitHub** : https://github.com/mldr23/ScannersGestionApp (public, branche main)
+- **Authentification** : mot de passe simple (st.secrets["auth"]["password"]), token persistant via st.query_params (hashlib sha256)
+- **Cache** : st.cache_data(ttl=300) sur les requetes de lecture, st.cache_data.clear() apres chaque ecriture
+- **Secrets** : .streamlit/secrets.toml (gitignored) avec sections [azure_sql] et [auth], configures aussi dans Streamlit Cloud
+- **Firewall Azure** : ouvert 0.0.0.0 - 255.255.255.255 (Streamlit Cloud n'a pas d'IP fixes, BDD protegee par login/mdp)
+- **Compatibilite Streamlit** : width="stretch" au lieu de use_container_width=True (deprecie depuis 2025, crash sur Streamlit >= 1.59)
+
+### Differences cle entre local et cloud
+- app.py : pyodbc + Windows Auth, pas d'authentification, pas de cache
+- app_cloud.py : pymssql + Azure SQL via st.secrets, authentification par mot de passe, cache TTL 300s
+- Les deux fichiers doivent rester alignes sur toute la logique metier
+- _sql_adapt() convertit les ? en %s pour pymssql dans app_cloud.py
 
 ## Structure BDD (DWH - 5 tables)
 
@@ -86,7 +109,7 @@ Procedo SRL — Chaussee de Louvain 775, 1140 Evere — BE 0461.065.843 — supp
 - Icones KPIs differenciees : ouvertures/fermetures distinctes des moyennes
 
 ## Dashboard — KPIs
-Ligne 1 : Total scanners, Actifs en agence, Agences ouvertes
+Ligne 1 : Total scanners, Parc actuel (exclut detruit + fin de vie + retour garantie), Actifs en agence, Agences ouvertes
 Ligne 2 : Atelier Procedo (a reparer), Maca Express (a livrer / en transit retour separes), Procedo (inactif)
 + Carte interactive Belgique : scanners actifs par province (choropleth Plotly + GeoJSON belgium_provinces.geojson)
 + Graphique horizontal combine : repartition par localisation (statut), ordre fixe : agence DVV, atelier Procedo, Maca Express, Procedo, detruit, fournisseur, perdu
@@ -264,13 +287,16 @@ Filtres : annee, mois, dates personnalisees (optionnel).
 KPIs (3 colonnes) :
 - Nouvelles pannes : COUNT maintenances WHERE Return_date BETWEEN dates
 - Reparations cloturees : COUNT maintenances WHERE End_Maintenance BETWEEN dates
-- Duree moy. reparation : AVG(DATEDIFF(DAY, Return_date, End_Maintenance)) sur TOUTES les maintenances cloturees (global, pas filtre par periode)
+- Duree moy. reparation : AVG(DATEDIFF(DAY, Return_date, End_Maintenance)) sur TOUTES les maintenances cloturees (global, pas filtre par periode), exclut les scanners perdus (Statut != 'a rechercher')
 
 ### Onglets : Historique, Modifier, Declarer (pas de Supprimer — le Undo couvre ce cas)
 
 ### Historique
 - Recherche par SN, Maintenance_id (exact), plage de dates (Return_date between)
 - Checkbox "Maintenances ouvertes uniquement" pour filtrer
+- Selectbox "Filtrer par statut scanner" (Tous / actif / a livrer / inactif / etc.) — utile pour voir les maintenances des scanners 'a livrer'
+- Quand un filtre statut est actif : tri par Serial_num ASC puis Return_date DESC (regroupe les lignes par scanner)
+- Colonne Statut_scanner ajoutee dans le tableau quand un filtre statut est actif
 - Compteur total de lignes affiche sous le tableau
 - Colonne "Copies" (renommee depuis "Copie" en BDD) dans le dataframe affiche
 - Cloture reparation en bas de l'historique (meme logique que Actions frequentes) :
@@ -282,7 +308,9 @@ KPIs (3 colonnes) :
 
 ### Modifier
 - Recherche par SN
-- Mettre a jour Panne_detected, Info_Maintenance et Copies (INT nullable) sur maintenance ouverte
+- Possibilite de modifier toutes les maintenances (pas uniquement les ouvertes)
+- Checkbox pour filtrer ouvertes/toutes, tag "(cloturee)" affiche pour les maintenances terminees
+- Mettre a jour Panne_detected, Info_Maintenance et Copies (INT nullable)
 - Champs pre-remplis avec les valeurs existantes
 - Cle de formulaire dynamique pour eviter les conflits de state Streamlit
 - Label "Copies" (sans mention "entier, laisser vide si non applicable")
@@ -321,7 +349,7 @@ Selection unique : choisir dans une categorie deselectionne les autres.
 #### Demenagement d'agence
 - Recherche agence par localite/adresse + Kantoor ID
 - Ancienne agence → closed
-- Nouvelle agence creee (ID auto, TOUS les champs vides a remplir)
+- Nouvelle agence creee (ID auto, TOUS les champs vides — aucun pre-remplissage depuis l'ancienne agence pour eviter la confusion)
 - Scanners : mouvement ancien clos avec Action = 'demenagement (fermeture)' (Via_Maca_Fin = 0) + nouveau 'demenagement (installation)' (Via_Maca = 0)
 - Scanners restent en agence DVV/actif
 
@@ -401,6 +429,16 @@ Selection unique : choisir dans une categorie deselectionne les autres.
 - Messages de succes affiches sous chaque formulaire (systeme show_success avec localisation)
 - Conversion numpy → Python natif pour pyodbc (_convert_params)
 - Compatibilite SQLite/SQL Server (sql_top, sql_cast_text)
+- Cloture reparation : label "Description de la reparation" (pas "de la panne")
+- app.py et app_cloud.py doivent TOUJOURS etre alignes sur la logique metier
+
+## Infos compte Azure
+- Subscription : Martin_Procedo
+- Directory : Procedo SPRL (procedo.be)
+- Serveur : procedo-sql-srv.database.windows.net (West Europe)
+- Base : Parc_Scanners_Procedo
+- Admin : procedo_admin
+- Free tier : 32 Go + 100 000 vCore-seconds/mois, auto-pause apres 1h inactivite
 
 ## Flux type d'un scanner
 1. Ajout en BDD → Procedo (inactif) + mouvement 'stock' ouvert
@@ -413,16 +451,38 @@ Selection unique : choisir dans une categorie deselectionne les autres.
 8. OU sortie de parc → detruit/fournisseur/perdu
 
 ## Fichiers
-- app.py — application principale
-- requirements.txt — streamlit, pandas, pyodbc, plotly
+
+### Application
+- app.py — version locale (pyodbc + Windows Auth, test en local)
+- app_cloud.py — version cloud (pymssql + Azure SQL + auth + cache)
+- requirements.txt — streamlit, pandas, pymssql, plotly, numpy
 - .streamlit/config.toml — theme ProceDo (couleurs, fond)
+- .streamlit/secrets.toml — credentials Azure SQL [azure_sql] + mot de passe app [auth] (gitignored)
+- ProceDo-logo.png — logo ProceDo (sidebar + ecran de login)
+
+### Deploiement cloud
+- GitHub repo : https://github.com/mldr23/ScannersGestionApp (public)
+- Deploiement : Streamlit Community Cloud, auto-redeploy sur git push
+- Workflow : modifier app.py et app_cloud.py → git add -A → git commit -m "msg" → git push
+
+### Migration & Backup
+- migrate_to_azure.py — migration one-shot local → Azure (cree les 5 tables, insere les donnees, IDENTITY_INSERT)
+- backup_from_azure.py — backup Azure → local SQL Server + fichiers JSON (C:\Users\Pierre\Desktop\BDD_scanners_DVV\BAK_BDD\backup_{timestamp})
+  - Delete en ordre FK inverse (enfants d'abord), insert en ordre normal (parents d'abord)
+  - Fallback JSON seul si SQL Server local indisponible
+  - Demande le mot de passe Azure au lancement
+
+### Donnees geographiques
 - belgium_provinces.geojson — frontieres des 11 provinces belges (converti depuis FR_Provinces.json TopoJSON)
 - FR_Provinces.json — source TopoJSON des provinces (arneh61/Belgium-Map)
-- logo.png — logo ProceDo (a placer manuellement dans le dossier)
-- fix_missing_stock.py — script one-shot de correction historique : stock manquant, maintenances ouvertes (preview/--execute)
-- fix_historical_dates.py — script one-shot de correction des dates artificielles 31/12 sur les DEPLACE (match Return_date maintenance, preview/--execute)
-- create_db.sql — script de creation des 5 tables SQL Server (avec Via_Maca et Via_Maca_Fin)
+
+### Scripts de correction (one-shot, historiques)
+- fix_missing_stock.py — correction stock manquant, maintenances ouvertes (preview/--execute)
+- fix_historical_dates.py — correction dates artificielles 31/12 sur les DEPLACE (preview/--execute)
+- check_demenagements.py — analyse lecture seule : detecte les demenagements
+- fix_demenagements.py — correction des 2 demenagements historiques (Diksmuide + Cuesmes)
+- create_db.sql — script de creation des 5 tables SQL Server
+
+### Documentation
 - LISEZMOI.txt — guide de demarrage
-- check_demenagements.py — script d'analyse lecture seule : detecte les demenagements (meme Localite + ecart ≤ 30j + meme scanner)
-- fix_demenagements.py — script de correction des 2 demenagements historiques (Diksmuide + Cuesmes), preview/--execute
 - PROJET_RECAP.md — ce fichier
