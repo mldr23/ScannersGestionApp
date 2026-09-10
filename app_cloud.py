@@ -2573,14 +2573,14 @@ elif page == "Maintenance":
 
         if only_open_maint:
             all_maints = run_query("""
-                SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
+                SELECT m.Maintenance_id, m.Serial_num, m.Event_type, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
                 FROM FactScannersMaintenance m
                 WHERE m.End_Maintenance IS NULL
                 ORDER BY m.Return_date DESC
             """)
         else:
             all_maints = run_query("""
-                SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
+                SELECT m.Maintenance_id, m.Serial_num, m.Event_type, m.Panne_detected, m.Info_Maintenance, m.Copie, m.Return_date, m.End_Maintenance
                 FROM FactScannersMaintenance m
                 ORDER BY m.Return_date DESC
             """)
@@ -2604,6 +2604,13 @@ elif page == "Maintenance":
             maint_row = all_maints[all_maints["Maintenance_id"] == selected_maint].iloc[0]
 
             with st.form(f"edit_maintenance_form_{selected_maint}"):
+                _cur_event = maint_row["Event_type"] if maint_row["Event_type"] else "Failure"
+                new_event_type = st.selectbox(
+                    "Type d'événement",
+                    EVENT_TYPES,
+                    index=EVENT_TYPES.index(_cur_event) if _cur_event in EVENT_TYPES else 0,
+                    key=f"edit_maint_event_{selected_maint}"
+                )
                 new_panne = st.text_area(
                     "Description de la panne",
                     value=maint_row["Panne_detected"] if maint_row["Panne_detected"] else "",
@@ -2631,8 +2638,8 @@ elif page == "Maintenance":
                             st.error("Copies doit être un nombre entier.")
                             st.stop()
                     run_execute(
-                        "UPDATE FactScannersMaintenance SET Panne_detected = ?, Info_Maintenance = ?, Copie = ? WHERE Maintenance_id = ?",
-                        [new_panne or "aucune", new_info or "aucune", copie_val, selected_maint],
+                        "UPDATE FactScannersMaintenance SET Event_type = ?, Panne_detected = ?, Info_Maintenance = ?, Copie = ? WHERE Maintenance_id = ?",
+                        [new_event_type, new_panne or "aucune", new_info or "aucune", copie_val, selected_maint],
                     )
                     show_success(f"✅ Maintenance #{selected_maint} mise à jour avec succès.", "maint_edit")
 
@@ -3127,7 +3134,7 @@ elif page == "Actions fréquentes":
         search_repair_sn = st.text_input("Rechercher par n° de série", key="act6_search_sn")
 
         open_repairs = run_query("""
-            SELECT m.Maintenance_id, m.Serial_num, m.Panne_detected, m.Info_Maintenance,
+            SELECT m.Maintenance_id, m.Serial_num, m.Event_type, m.Panne_detected, m.Info_Maintenance,
                    m.Copie, m.Return_date, s.Localisation
             FROM FactScannersMaintenance m
             JOIN DimScanners s ON m.Serial_num = s.Serial_num
@@ -3224,6 +3231,13 @@ elif page == "Actions fréquentes":
             repair_row = open_repairs[open_repairs["Maintenance_id"] == repair_id].iloc[0]
 
             with st.form(f"edit_repair_{repair_id}"):
+                _cur_event_r = repair_row["Event_type"] if repair_row["Event_type"] else "Failure"
+                new_event_type_r = st.selectbox(
+                    "Type d'événement",
+                    EVENT_TYPES,
+                    index=EVENT_TYPES.index(_cur_event_r) if _cur_event_r in EVENT_TYPES else 0,
+                    key=f"edit_repair_event_{repair_id}"
+                )
                 new_panne = st.text_area(
                     "Description de la panne",
                     value=repair_row["Panne_detected"] if repair_row["Panne_detected"] else "",
@@ -3251,8 +3265,8 @@ elif page == "Actions fréquentes":
                             st.error("Copies doit être un nombre entier.")
                             st.stop()
                     run_execute(
-                        "UPDATE FactScannersMaintenance SET Panne_detected = ?, Info_Maintenance = ?, Copie = ? WHERE Maintenance_id = ?",
-                        [new_panne or "aucune", new_info or "aucune", copie_val, repair_id],
+                        "UPDATE FactScannersMaintenance SET Event_type = ?, Panne_detected = ?, Info_Maintenance = ?, Copie = ? WHERE Maintenance_id = ?",
+                        [new_event_type_r, new_panne or "aucune", new_info or "aucune", copie_val, repair_id],
                     )
                     show_success(f"✅ Réparation #{repair_id} mise à jour avec succès.", "act6_edit")
 
